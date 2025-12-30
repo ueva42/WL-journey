@@ -4,13 +4,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
+  Area,
+  AreaChart,
+  Line,
 } from "recharts";
+
+import { Card, CardHeader, CardBody, Divider } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type WeighIn = {
   id: string;
@@ -67,11 +72,10 @@ function MiniTimeline({
 }) {
   if (pageCount <= 1) return null;
 
-  // Wenn zu viele Seiten: Slider statt Dots
   if (pageCount > 20) {
     return (
-      <div className="mt-2">
-        <div className="flex items-center justify-between text-xs opacity-70 mb-1">
+      <div className="mt-3">
+        <div className="flex items-center justify-between text-xs text-zinc-400 mb-1">
           <span>Neuer</span>
           <span>
             Seite {currentPage + 1} / {pageCount}
@@ -84,16 +88,15 @@ function MiniTimeline({
           max={pageCount - 1}
           value={currentPage}
           onChange={(e) => onJump(Number(e.target.value))}
-          className="w-full"
+          className="w-full accent-fuchsia-400"
         />
       </div>
     );
   }
 
-  // Dots (klickbar)
   return (
-    <div className="mt-2 flex items-center gap-2 flex-wrap">
-      <span className="text-xs opacity-70">Neuer</span>
+    <div className="mt-3 flex items-center gap-2 flex-wrap">
+      <span className="text-xs text-zinc-400">Neuer</span>
       <div className="flex items-center gap-1">
         {Array.from({ length: pageCount }).map((_, i) => {
           const active = i === currentPage;
@@ -102,22 +105,36 @@ function MiniTimeline({
               key={i}
               onClick={() => onJump(i)}
               title={`Seite ${i + 1}`}
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                border: "1px solid rgba(255,255,255,0.25)",
-                background: active ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.12)",
-              }}
+              className={[
+                "h-[10px] w-[10px] rounded-full border transition",
+                "border-white/20",
+                active
+                  ? "bg-fuchsia-300/70 shadow-[0_0_12px_rgba(236,72,153,0.25)]"
+                  : "bg-white/10 hover:bg-white/16",
+              ].join(" ")}
             />
           );
         })}
       </div>
-      <span className="text-xs opacity-70">Älter</span>
+      <span className="text-xs text-zinc-400">Älter</span>
 
-      <span className="text-xs opacity-70 ml-2">
+      <span className="text-xs text-zinc-400 ml-2">
         Seite {currentPage + 1}/{pageCount}
       </span>
+    </div>
+  );
+}
+
+function ModernTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const w = payload[0]?.value;
+  return (
+    <div
+      className="rounded-2xl border border-white/10 bg-black/70 px-3 py-2 text-sm text-zinc-100"
+      style={{ backdropFilter: "blur(8px)" }}
+    >
+      <div className="text-xs text-zinc-400 mb-1">{fmtDateDE(String(label))}</div>
+      <div className="font-semibold">{Number(w).toFixed(1)} kg</div>
     </div>
   );
 }
@@ -213,7 +230,7 @@ export default function DashboardPage() {
         .update({ target_weight_kg: n })
         .eq("user_id", myUserId);
       if (error) throw error;
-      setStatus("Zielgewicht gespeichert.");
+      setStatus("✅ Zielgewicht gespeichert.");
     } catch (e: any) {
       setStatus(e?.message ?? String(e));
     } finally {
@@ -350,7 +367,6 @@ export default function DashboardPage() {
 
   const rangeLabel = useMemo(() => {
     if (pageDesc.length === 0) return "";
-    // pageDesc: neu -> alt
     const newest = pageDesc[0]?.entry_date;
     const oldest = pageDesc[pageDesc.length - 1]?.entry_date;
     if (!newest || !oldest) return "";
@@ -372,7 +388,7 @@ export default function DashboardPage() {
   // iOS-sicherer Pointer-Swipe (Rand ignorieren)
   function canStartSwipe(clientX: number, el: HTMLElement) {
     const r = el.getBoundingClientRect();
-    const edge = 28; // px
+    const edge = 28;
     return clientX > r.left + edge && clientX < r.right - edge;
   }
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -403,230 +419,274 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
-
-      {/* Eingabe */}
-      <div className="rounded-2xl border border-white/15 bg-white/5 p-5 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          <div>
-            <div className="text-sm opacity-80 mb-1">Datum</div>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none"
-            />
-          </div>
-          <div>
-            <div className="text-sm opacity-80 mb-1">Gewicht (kg)</div>
-            <input
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none"
-              inputMode="decimal"
-            />
-          </div>
-          <button
-            onClick={addWeighIn}
-            disabled={busy || !myUserId}
-            className="w-full rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
-          >
-            {busy ? "…" : "Eintragen"}
-          </button>
-        </div>
-
-        {/* Zielgewicht */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-          <input
-            value={targetWeight}
-            onChange={(e) => setTargetWeight(e.target.value)}
-            placeholder="Ziel (kg)"
-            className="w-full rounded-xl border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none"
-            inputMode="decimal"
-          />
-          <button
-            onClick={saveTarget}
-            disabled={savingTarget || !myUserId}
-            className="rounded-xl border border-white/15 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50"
-          >
-            {savingTarget ? "…" : "Ziel speichern"}
-          </button>
-        </div>
-
-        {/* Kennzahlen */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs opacity-70">Letzter Eintrag</div>
-            <div className="text-lg font-semibold">
-              {latest ? `${latest.weight_kg.toFixed(1)} kg` : "—"}
-            </div>
-            <div className="text-xs opacity-70">{latest ? fmtDateDE(latest.entry_date) : ""}</div>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs opacity-70">Differenz zum Ziel</div>
-            <div className="text-lg font-semibold">
-              {diffToGoal == null ? "—" : `${diffToGoal > 0 ? "+" : ""}${diffToGoal.toFixed(1)} kg`}
-            </div>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-            <div className="text-xs opacity-70">Differenz zur Vorwoche</div>
-            <div className="text-lg font-semibold">
-              {diffToPrevWeek == null ? "—" : `${diffToPrevWeek > 0 ? "+" : ""}${diffToPrevWeek.toFixed(1)} kg`}
-            </div>
-            <div className="text-xs opacity-70">
-              {prevWeek && latest
-                ? `vs. ${fmtDateDE(prevWeek.entry_date)} (${daysBetween(
-                    latest.entry_date,
-                    prevWeek.entry_date
-                  )} Tage)`
-                : ""}
-            </div>
-          </div>
-        </div>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <div className="text-xs text-zinc-400">Neon Crew · modern chart</div>
       </div>
 
-      {/* Chart + Mini Timeline */}
-      <div className="rounded-2xl border border-white/15 bg-white/5 p-5">
-        <div className="flex items-center justify-between mb-1 gap-3">
-          <div>
-            <div className="text-sm font-semibold">Gewichts-Diagramm (10er-Fenster)</div>
-            <div className="text-xs opacity-70">{rangeLabel}</div>
-          </div>
+      {/* Eingabe + Ziel + Kennzahlen */}
+      <Card className="space-y-4">
+        <CardHeader
+          title="Eintragen"
+          subtitle="Ein Eintrag pro Tag – Bearbeiten/Löschen jederzeit möglich."
+        />
+        <Divider />
+        <CardBody className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div>
+              <div className="text-sm text-zinc-300 mb-1">Datum</div>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={goNewer}
-              disabled={chartOffset === 0}
-              className="rounded-xl border border-white/15 px-3 py-1 text-sm hover:bg-white/10 disabled:opacity-50"
-            >
-              Neuer
-            </button>
-            <button
-              onClick={goOlder}
-              disabled={chartOffset >= maxOffset}
-              className="rounded-xl border border-white/15 px-3 py-1 text-sm hover:bg-white/10 disabled:opacity-50"
-            >
-              Älter
-            </button>
-          </div>
-        </div>
-
-        {/* Mini Timeline */}
-        <MiniTimeline pageCount={pageCount} currentPage={currentPage} onJump={jumpToPage} />
-
-        <div
-          style={{
-            width: "100%",
-            height: 320,
-            marginTop: 10,
-            touchAction: "pan-y",
-            userSelect: "none",
-            WebkitUserSelect: "none",
-          }}
-          onPointerDown={onPointerDown}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerCancel}
-        >
-          <ResponsiveContainer>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tickFormatter={(v) => String(v).slice(5)} />
-              <YAxis domain={["auto", "auto"]} />
-              <Tooltip
-                labelFormatter={(v) => `Datum: ${fmtDateDE(String(v))}`}
-                formatter={(v) => [`${Number(v).toFixed(1)} kg`, "Gewicht"]}
+            <div>
+              <div className="text-sm text-zinc-300 mb-1">Gewicht (kg)</div>
+              <Input
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                inputMode="decimal"
+                placeholder="z.B. 82.4"
               />
-              <Line type="monotone" dataKey="weight" dot />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+            </div>
 
-        <div className="text-xs opacity-70 mt-2">Tipp: Im Diagramm links/rechts wischen.</div>
-      </div>
+            <Button onClick={addWeighIn} disabled={busy || !myUserId} variant="solid" className="w-full">
+              {busy ? "…" : "Eintragen"}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            <div className="md:col-span-2">
+              <div className="text-sm text-zinc-300 mb-1">Zielgewicht (kg)</div>
+              <Input
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(e.target.value)}
+                placeholder="z.B. 78.0"
+                inputMode="decimal"
+              />
+            </div>
+
+            <Button onClick={saveTarget} disabled={savingTarget || !myUserId} className="w-full">
+              {savingTarget ? "…" : "Ziel speichern"}
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-xs text-zinc-400">Letzter Eintrag</div>
+              <div className="text-lg font-semibold">
+                {latest ? `${latest.weight_kg.toFixed(1)} kg` : "—"}
+              </div>
+              <div className="text-xs text-zinc-500">{latest ? fmtDateDE(latest.entry_date) : ""}</div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-xs text-zinc-400">Differenz zum Ziel</div>
+              <div className="text-lg font-semibold">
+                {diffToGoal == null ? "—" : `${diffToGoal > 0 ? "+" : ""}${diffToGoal.toFixed(1)} kg`}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-xs text-zinc-400">Differenz zur Vorwoche</div>
+              <div className="text-lg font-semibold">
+                {diffToPrevWeek == null
+                  ? "—"
+                  : `${diffToPrevWeek > 0 ? "+" : ""}${diffToPrevWeek.toFixed(1)} kg`}
+              </div>
+              <div className="text-xs text-zinc-500">
+                {prevWeek && latest
+                  ? `vs. ${fmtDateDE(prevWeek.entry_date)} (${daysBetween(
+                      latest.entry_date,
+                      prevWeek.entry_date
+                    )} Tage)`
+                  : ""}
+              </div>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Chart */}
+      <Card>
+        <CardHeader
+          title="Gewichts-Diagramm"
+          subtitle="Modern · Area + Neon Gradient · Swipe/Timeline"
+          right={
+            <div className="flex gap-2">
+              <Button onClick={goNewer} disabled={chartOffset === 0}>
+                Neuer
+              </Button>
+              <Button onClick={goOlder} disabled={chartOffset >= maxOffset}>
+                Älter
+              </Button>
+            </div>
+          }
+        />
+        <Divider />
+        <CardBody>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-zinc-400">{rangeLabel || "—"}</div>
+            {pageCount > 1 ? (
+              <div className="text-xs text-zinc-500">
+                Seite {currentPage + 1}/{pageCount}
+              </div>
+            ) : null}
+          </div>
+
+          <MiniTimeline pageCount={pageCount} currentPage={currentPage} onJump={jumpToPage} />
+
+          <div
+            className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-2"
+            style={{
+              width: "100%",
+              height: 360,
+              minWidth: 0,
+              touchAction: "pan-y",
+              userSelect: "none",
+              WebkitUserSelect: "none",
+            }}
+            onPointerDown={onPointerDown}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+          >
+            <ResponsiveContainer>
+              <AreaChart data={chartData} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="neonFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(236,72,153,0.35)" />
+                    <stop offset="65%" stopColor="rgba(236,72,153,0.10)" />
+                    <stop offset="100%" stopColor="rgba(236,72,153,0.00)" />
+                  </linearGradient>
+
+                  <linearGradient id="neonStroke" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="rgba(34,211,238,0.95)" />
+                    <stop offset="50%" stopColor="rgba(236,72,153,0.95)" />
+                    <stop offset="100%" stopColor="rgba(16,185,129,0.95)" />
+                  </linearGradient>
+                </defs>
+
+                <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(v) => String(v).slice(5)}
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 12 }}
+                  axisLine={{ stroke: "rgba(255,255,255,0.10)" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={["auto", "auto"]}
+                  tick={{ fill: "rgba(255,255,255,0.55)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={38}
+                />
+                <Tooltip content={<ModernTooltip />} />
+
+                <Area
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="url(#neonStroke)"
+                  strokeWidth={3}
+                  fill="url(#neonFill)"
+                  fillOpacity={1}
+                  dot={false}
+                  activeDot={{
+                    r: 5,
+                    strokeWidth: 2,
+                    stroke: "rgba(255,255,255,0.75)",
+                    fill: "rgba(236,72,153,0.95)",
+                  }}
+                />
+
+                {/* dünne Overlay-Linie für crisp look */}
+                <Line
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth={1}
+                  dot={false}
+                  activeDot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="mt-2 text-xs text-zinc-400">
+            Tipp: Im Diagramm links/rechts wischen (Rand wird ignoriert).
+          </div>
+        </CardBody>
+      </Card>
 
       {/* Tabelle */}
-      <div className="rounded-2xl border border-white/15 bg-white/5 p-5">
-        <div className="text-sm font-semibold mb-3">Einträge (alle)</div>
-
-        {entries.length === 0 ? (
-          <div className="text-sm opacity-70">Keine Einträge.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse">
-              <thead>
-                <tr className="text-left text-sm opacity-80">
-                  <th className="py-2">Datum</th>
-                  <th className="py-2">kg</th>
-                  <th className="py-2">Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((e) => (
-                  <tr key={e.id} className="border-t border-white/10">
-                    <td className="py-3">{e.entry_date}</td>
-                    <td className="py-3">
-                      {editingId === e.id ? (
-                        <input
-                          value={editWeight}
-                          onChange={(ev) => setEditWeight(ev.target.value)}
-                          className="w-28 rounded-lg border border-white/15 bg-black/20 px-2 py-1 text-sm outline-none"
-                          inputMode="decimal"
-                        />
-                      ) : (
-                        e.weight_kg.toFixed(1)
-                      )}
-                    </td>
-                    <td className="py-3">
-                      {editingId === e.id ? (
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => saveEdit(e.id)}
-                            disabled={busy}
-                            className="text-sm underline opacity-80 hover:opacity-100 disabled:opacity-50"
-                          >
-                            Speichern
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            disabled={busy}
-                            className="text-sm underline opacity-80 hover:opacity-100 disabled:opacity-50"
-                          >
-                            Abbrechen
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => startEdit(e.id, e.weight_kg)}
-                            disabled={busy}
-                            className="text-sm underline opacity-80 hover:opacity-100 disabled:opacity-50"
-                          >
-                            Bearbeiten
-                          </button>
-                          <button
-                            onClick={() => deleteEntry(e.id)}
-                            disabled={busy}
-                            className="text-sm underline opacity-80 hover:opacity-100 disabled:opacity-50"
-                          >
-                            Löschen
-                          </button>
-                        </div>
-                      )}
-                    </td>
+      <Card>
+        <CardHeader title="Einträge (alle)" subtitle="Neueste zuerst. Direkt bearbeiten/löschen." />
+        <Divider />
+        <CardBody>
+          {entries.length === 0 ? (
+            <div className="text-sm text-zinc-400">Keine Einträge.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px] border-collapse">
+                <thead>
+                  <tr className="text-left text-sm text-zinc-300">
+                    <th className="py-2">Datum</th>
+                    <th className="py-2">kg</th>
+                    <th className="py-2">Aktion</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {entries.map((e) => (
+                    <tr key={e.id} className="border-t border-white/10">
+                      <td className="py-3 text-sm text-zinc-200">{e.entry_date}</td>
+                      <td className="py-3 text-sm text-zinc-200">
+                        {editingId === e.id ? (
+                          <Input
+                            value={editWeight}
+                            onChange={(ev) => setEditWeight(ev.target.value)}
+                            className="w-28"
+                            inputMode="decimal"
+                          />
+                        ) : (
+                          e.weight_kg.toFixed(1)
+                        )}
+                      </td>
+                      <td className="py-3">
+                        {editingId === e.id ? (
+                          <div className="flex gap-2 flex-wrap">
+                            <Button onClick={() => saveEdit(e.id)} disabled={busy} variant="solid">
+                              Speichern
+                            </Button>
+                            <Button onClick={cancelEdit} disabled={busy}>
+                              Abbrechen
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 flex-wrap">
+                            <Button onClick={() => startEdit(e.id, e.weight_kg)} disabled={busy}>
+                              Bearbeiten
+                            </Button>
+                            <Button onClick={() => deleteEntry(e.id)} disabled={busy} variant="danger">
+                              Löschen
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardBody>
+      </Card>
 
-      {status && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
-          {status}
-        </div>
-      )}
+      {status ? (
+        <Card>
+          <CardBody>
+            <div className="text-sm text-zinc-200">{status}</div>
+          </CardBody>
+        </Card>
+      ) : null}
     </div>
   );
 }
