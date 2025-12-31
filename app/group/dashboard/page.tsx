@@ -339,7 +339,9 @@ export default function GroupDashboardPage() {
             display_name: p.display_name ?? "—",
             avatar_url: p.avatar_url ?? null,
           }))
-          .sort((a, b) => safeName(a.display_name).localeCompare(safeName(b.display_name), "de"));
+          .sort((a: Member, b: Member) =>
+            safeName(a.display_name).localeCompare(safeName(b.display_name), "de")
+          );
 
         setMembers(merged);
 
