@@ -14,6 +14,8 @@ import {
   Legend,
 } from "recharts";
 
+
+import type { TooltipProps } from "recharts";
 type Group = {
   id: string;
   name: string;
@@ -130,27 +132,22 @@ function isAllowedImageType(file: File) {
 }
 
 // ---- Modern Tooltip ----
-function ModernTooltip({
-  active,
-  label,
-  payload,
-  nameById,
-}: {
-  active?: boolean;
-  label?: any;
-  payload?: any[];
-  nameById: Map<string, string>;
-}) {
+function ModernTooltip(
+  props: TooltipProps<number, string> & { nameById: Map<string, string> }
+) {
+  const { active, payload, nameById } = props as any;
+  const label = (props as any).label;
   if (!active || !payload || payload.length === 0) return null;
 
   const date = String(label ?? "");
-  const rows = payload
-    .filter((p) => p && p.value != null && Number.isFinite(Number(p.value)))
+
+  const rows = Array.from(payload)
+    .filter((p) => p && (p as any).value != null && Number.isFinite(Number((p as any).value)))
     .map((p) => ({
-      key: String(p.dataKey),
-      name: nameById.get(String(p.dataKey)) ?? String(p.dataKey),
-      value: Number(p.value),
-      color: p.stroke ?? "rgba(255,255,255,0.7)",
+      key: String((p as any).dataKey),
+      name: nameById.get(String((p as any).dataKey)) ?? String((p as any).dataKey),
+      value: Number((p as any).value),
+      color: (p as any).stroke ?? "rgba(255,255,255,0.7)",
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
 
@@ -879,7 +876,7 @@ export default function GroupDashboardPage() {
                   tickLine={{ stroke: "rgba(255,255,255,0.12)" }}
                 />
                 <Tooltip
-                  content={(props) => <ModernTooltip {...props} nameById={nameById} />}
+                  content={(props: any) => <ModernTooltip {...(props as any)} nameById={nameById} />}
                   cursor={{ stroke: "rgba(255,255,255,0.10)" }}
                 />
                 <Legend
